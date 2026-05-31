@@ -106,3 +106,27 @@ class Answer(Base):
     session: Mapped["Session"] = relationship(back_populates="answers")
     step: Mapped["Step"] = relationship()
     option: Mapped["Option"] = relationship()
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    visitor_name: Mapped[Optional[str]] = mapped_column(String(128))
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+
+    messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="chat_session", cascade="all, delete-orphan", order_by="ChatMessage.created_at"
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(36), ForeignKey("chat_sessions.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)  # visitor | support
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+
+    chat_session: Mapped["ChatSession"] = relationship(back_populates="messages")

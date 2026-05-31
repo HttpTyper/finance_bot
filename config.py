@@ -24,3 +24,4 @@ ADMIN_IDS = (
     else []
 )
 LANDING_URL = os.getenv("LANDING_URL", "").rstrip("/")
+CHAT_ADMIN_SECRET = os.getenv("CHAT_ADMIN_SECRET", "")

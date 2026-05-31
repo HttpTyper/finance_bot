@@ -1,26 +1,24 @@
-"""
-FastAPI-сервер для фронтенда лендинга.
-Запуск: uvicorn api_server:app --reload --port 8081
-"""
-
-import sys
 import os
+import sys
 from contextlib import asynccontextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from audit_cases import AUDIT_CASES
 from game_cases import GAME_CASES
+from database.db import async_session, init_db
+from database import models  # noqa: F401 — register ORM models
+from services.chat_hub import chat_hub
+from services import chat_service
 
 all_cases = []
 
 
 def collect_cases():
-    """Собирает все кейсы из модулей."""
     result = []
     INDUSTRY_MAP = {"audit": "Аудит", "game": "Игра", "finance": "Финансы", "production": "Производство"}
 
@@ -80,6 +78,7 @@ def collect_cases():
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global all_cases
+    await init_db()
     all_cases = collect_cases()
     print(f"API: loaded {len(all_cases)} cases")
     yield
@@ -99,9 +98,97 @@ class AnswerRequest(BaseModel):
     option_index: int
 
 
+class ChatSendRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    visitor_name: str | None = Field(default=None, max_length=128)
+
+
+class AdminReplyRequest(BaseModel):
+    session_id: str
+    text: str = Field(min_length=1, max_length=2000)
+    secret: str
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/chat/sessions/{session_id}/messages")
+async def chat_history(session_id: str):
+    async with async_session() as db:
+        await chat_service.get_or_create_session(db, session_id)
+        welcome = await chat_service.ensure_welcome(db, session_id)
+        messages = await chat_service.get_messages(db, session_id)
+
+    payload = [chat_service.message_to_dict(m) for m in messages]
+    return {"session_id": session_id, "messages": payload, "welcome_sent": welcome is not None}
+
+
+@app.post("/api/chat/sessions/{session_id}/messages")
+async def chat_send(session_id: str, body: ChatSendRequest):
+    async with async_session() as db:
+        msg = await chat_service.add_message(
+            db, session_id, "visitor", body.text, body.visitor_name
+        )
+
+    data = {"type": "message", "message": chat_service.message_to_dict(msg)}
+    await chat_hub.broadcast(session_id, data)
+    return data["message"]
+
+
+@app.post("/api/chat/admin/reply")
+async def chat_admin_reply(body: AdminReplyRequest):
+    from config import CHAT_ADMIN_SECRET
+
+    if not CHAT_ADMIN_SECRET or body.secret != CHAT_ADMIN_SECRET:
+        raise HTTPException(403, "Forbidden")
+
+    try:
+        async with async_session() as db:
+            msg = await chat_service.add_support_reply(db, body.session_id, body.text)
+    except ValueError:
+        raise HTTPException(404, "Session not found")
+
+    data = {"type": "message", "message": chat_service.message_to_dict(msg)}
+    await chat_hub.broadcast(body.session_id, data)
+    return data["message"]
+
+
+@app.websocket("/api/chat/ws/{session_id}")
+async def chat_websocket(websocket: WebSocket, session_id: str):
+    await chat_hub.connect(session_id, websocket)
+
+    try:
+        async with async_session() as db:
+            await chat_service.get_or_create_session(db, session_id)
+            welcome = await chat_service.ensure_welcome(db, session_id)
+            messages = await chat_service.get_messages(db, session_id)
+
+        await websocket.send_json({
+            "type": "history",
+            "messages": [chat_service.message_to_dict(m) for m in messages],
+        })
+
+        while True:
+            raw = await websocket.receive_json()
+            text = (raw.get("text") or "").strip()
+            if not text:
+                continue
+
+            visitor_name = raw.get("visitor_name")
+            async with async_session() as db:
+                msg = await chat_service.add_message(
+                    db, session_id, "visitor", text, visitor_name
+                )
+
+            payload = {"type": "message", "message": chat_service.message_to_dict(msg)}
+            await chat_hub.broadcast(session_id, payload)
+
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await chat_hub.disconnect(session_id, websocket)
 
 
 @app.get("/api/cases")
