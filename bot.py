@@ -14,6 +14,7 @@ from database.db import init_db, async_session
 from handlers import start, game, admin
 from seed_data import seed_case
 from audit_cases import AUDIT_CASES
+from game_cases import GAME_CASES, seed_game_cases
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ async def on_startup(bot: Bot):
     async with async_session() as session:
         await seed_case(session)
         await seed_audit_cases(session)
+        await seed_game_cases(session)
         logger.info("Seed data loaded")
 
 

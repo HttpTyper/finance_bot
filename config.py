@@ -1,4 +1,8 @@
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent / ".env")
 
 
 def _normalize_database_url(url: str) -> str:
@@ -19,3 +23,4 @@ ADMIN_IDS = (
     if os.getenv("ADMIN_IDS")
     else []
 )
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").rstrip("/")

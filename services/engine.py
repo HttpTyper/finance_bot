@@ -1,3 +1,5 @@
+import re
+
 from database.models import Step, Option, Session, Case
 
 
@@ -24,23 +26,83 @@ def apply_effects(state: dict, effects: dict) -> dict:
     return new_state
 
 
+def _is_numeric(val) -> bool:
+    s = str(val).strip()
+    if not s:
+        return False
+    return bool(re.fullmatch(r"[\(\[\-]?[\d\s,.]+[\)\]%]?", s))
+
+
+def _col_align(col_index: int, rows: list, headers: list) -> str:
+    if col_index == 0 and len(headers) > 1:
+        return "ljust"
+    values = [str(r[col_index]) for r in rows if col_index < len(r) and str(r[col_index]).strip()]
+    if not values:
+        return "center"
+    numeric_count = sum(1 for v in values if _is_numeric(v))
+    return "rjust" if numeric_count > len(values) / 2 else "ljust"
+
+
 def format_table(data: dict) -> str:
     if not data or "tables" not in data:
         return ""
     lines = []
     for table in data["tables"]:
         title = table.get("title", "")
+        headers = table.get("headers", [])
         rows = table.get("rows", [])
         lines.append(f"📊 <b>{title}</b>")
-        for row in rows:
-            label = str(row[0]) if row else ""
-            values = [str(v) for v in row[1:]]
-            if values:
-                lines.append(f"  {label} — {' | '.join(values)}")
-            else:
-                lines.append(f"  {label}")
+        if not headers and not rows:
+            lines.append("")
+            continue
+        if headers:
+            col_widths = [
+                max(
+                    max((len(str(row[i])) if i < len(row) else 0) for row in rows),
+                    len(h),
+                ) + 2
+                for i, h in enumerate(headers)
+            ]
+            sep = "├" + "┼".join("─" * w for w in col_widths) + "┤"
+            bot = "└" + "┴".join("─" * w for w in col_widths) + "┘"
+            hdr = "│" + "│".join(f" {h.center(col_widths[i] - 2)} " for i, h in enumerate(headers)) + "│"
+            lines.append(f"<pre>{hdr}\n{sep}")
+            aligns = [_col_align(i, rows, headers) for i in range(len(headers))]
+            for row in rows:
+                cells = []
+                for i in range(len(headers)):
+                    if i < len(row):
+                        val = str(row[i])
+                        w = col_widths[i] - 2
+                        if aligns[i] == "ljust":
+                            formatted = val.ljust(w)
+                        elif aligns[i] == "rjust":
+                            formatted = val.rjust(w)
+                        else:
+                            formatted = val.center(w)
+                        cells.append(f" {formatted} ")
+                    else:
+                        cells.append(" " * col_widths[i])
+                rline = "│" + "│".join(cells) + "│"
+                lines.append(rline)
+            lines.append(bot + "</pre>")
+        else:
+            for row in rows:
+                label = str(row[0]) if row else ""
+                values = [str(v) for v in row[1:]]
+                if values:
+                    lines.append(f"  {label} — {' | '.join(values)}")
+                else:
+                    lines.append(f"  {label}")
         lines.append("")
     return "\n".join(lines)
+
+
+def health_bar(health: int) -> str:
+    filled = max(0, min(10, health // 10))
+    empty = 10 - filled
+    bar = "█" * filled + "░" * empty
+    return f"💊 Здоровье: <b>{bar} {health}%</b>"
 
 
 def format_state_summary(state: dict) -> str:
@@ -54,7 +116,7 @@ def format_state_summary(state: dict) -> str:
         f"• Выручка: <b>{state.get('revenue', 0):,}</b>",
         f"• Прибыль: <b>{state.get('profit', 0):,}</b>",
         f"• Активы: <b>{state.get('total_assets', 0):,}</b>",
-        f"\n💊 <b>Здоровье компании: {state.get('health', 0)}%</b>",
+        f"\n{health_bar(state.get('health', 0))}",
     ]
     return "\n".join(lines)
 
@@ -130,7 +192,7 @@ class GameEngine:
             "🎯 <b>Симуляция завершена!</b>\n",
             f"✅ Верно: {self.session.correct_answers}",
             f"❌ Неверно: {wrong_count}",
-            f"💊 Итоговое здоровье компании: {health}%\n",
+            f"\n{health_bar(health)}\n",
             "─" * 20,
         ]
         if pct >= 80 and health >= 70:
