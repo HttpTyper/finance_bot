@@ -1,6 +1,5 @@
 import Navbar from './components/Navbar'
 import Landing from './pages/Landing'
-import LiveChat from './components/LiveChat'
 import './App.css'
 
 const BOT_URL = 'https://t.me/finsimulator01bot'
@@ -22,7 +21,6 @@ export default function App() {
           </a>
         </div>
       </footer>
-      <LiveChat />
     </div>
   )
 }
