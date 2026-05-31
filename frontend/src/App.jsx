@@ -1,24 +1,24 @@
-import { Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Landing from './pages/Landing'
-import Cases from './pages/Cases'
-import CaseDetail from './pages/CaseDetail'
 import './App.css'
+
+const BOT_URL = 'https://t.me/finsimulator01bot'
 
 export default function App() {
   return (
     <div className="app">
-      <Navbar />
+      <Navbar botUrl={BOT_URL} />
       <main>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/cases" element={<Cases />} />
-          <Route path="/cases/:id" element={<CaseDetail />} />
-        </Routes>
+        <Landing botUrl={BOT_URL} />
       </main>
       <footer className="footer">
         <div className="container">
-          <p>Finance Simulator &copy; 2026 &mdash; интерактивный тренажёр по аудиту</p>
+          <p>
+            Finance Simulator &copy; 2026 &mdash; тренажёр по аудиту и финансам в Telegram
+          </p>
+          <a href={BOT_URL} target="_blank" rel="noopener noreferrer" className="footer-link">
+            @finsimulator01bot
+          </a>
         </div>
       </footer>
     </div>

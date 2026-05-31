@@ -1,17 +1,14 @@
-import { Link, useLocation } from 'react-router-dom'
-
-export default function Navbar() {
-  const { pathname } = useLocation()
-
+export default function Navbar({ botUrl }) {
   return (
     <nav className="navbar">
       <div className="container">
-        <Link to="/" className="logo">Finance Simulator</Link>
+        <a href="#" className="logo">Finance Simulator</a>
         <div className="nav-links">
-          <Link to="/" className={pathname === '/' ? 'active' : ''}>Главная</Link>
-          <Link to="/cases" className={pathname.startsWith('/cases') ? 'active' : ''}>Кейсы</Link>
-          <a href="https://t.me/finsimulator01bot" target="_blank" rel="noopener" className="btn-telegram">
-            Telegram бот
+          <a href="#features">Возможности</a>
+          <a href="#modules">Модули</a>
+          <a href="#how">Как начать</a>
+          <a href={botUrl} target="_blank" rel="noopener noreferrer" className="btn-telegram">
+            Открыть бота
           </a>
         </div>
       </div>

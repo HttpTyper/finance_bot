@@ -23,4 +23,4 @@ ADMIN_IDS = (
     if os.getenv("ADMIN_IDS")
     else []
 )
-WEBAPP_URL = os.getenv("WEBAPP_URL", "").rstrip("/")
+LANDING_URL = os.getenv("LANDING_URL", "").rstrip("/")

@@ -105,12 +105,19 @@ async def get_or_create_user(message: types.Message, db: AsyncSession) -> User:
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, db: AsyncSession):
     user = await get_or_create_user(message, db)
-    await message.answer(
+    from config import LANDING_URL
+
+    text = (
         f"👋 <b>Добро пожаловать, {user.full_name or 'пользователь'}!</b>\n\n"
         "Это симулятор кейсов по реальному сектору экономики.\n"
         "Вы будете анализировать финансовые отчёты компаний\n"
         "и принимать управленческие решения.\n\n"
-        "Выберите действие в меню:",
+    )
+    if LANDING_URL:
+        text += f'Подробнее о проекте: <a href="{LANDING_URL}">сайт</a>\n\n'
+    text += "Выберите действие в меню:"
+    await message.answer(
+        text,
         reply_markup=main_menu_kb(user.is_admin),
     )
 

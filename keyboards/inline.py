@@ -1,16 +1,13 @@
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardButton
 
-from config import WEBAPP_URL
+from config import LANDING_URL
 
 
 def main_menu_kb(is_admin: bool = False):
     builder = InlineKeyboardBuilder()
-    if WEBAPP_URL:
-        builder.button(
-            text="Открыть приложение",
-            web_app=WebAppInfo(url=WEBAPP_URL),
-        )
+    if LANDING_URL:
+        builder.button(text="🌐 О проекте", url=LANDING_URL)
     builder.button(text="Доступные кейсы", callback_data="menu:cases")
     builder.button(text="Обучение аудиту", callback_data="menu:audit")
     builder.button(text="Мой профиль", callback_data="menu:profile")
